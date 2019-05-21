@@ -58,3 +58,7 @@ kotlin {
 		}
     }
 }
+
+// Test for KT-31527. We should jsTest for compatibility
+task('jsCustomTest') {}
+tasks.jsTest.dependsOn(':jsCustomTest')

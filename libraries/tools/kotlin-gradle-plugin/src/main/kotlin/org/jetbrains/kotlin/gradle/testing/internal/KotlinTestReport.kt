@@ -6,34 +6,25 @@
 package org.jetbrains.kotlin.gradle.testing.internal
 
 import org.gradle.api.GradleException
-import org.gradle.api.internal.AbstractTask
-import org.gradle.api.tasks.*
-import org.gradle.api.tasks.testing.AbstractTestTask
-import org.gradle.api.tasks.testing.TestDescriptor
-import org.gradle.api.tasks.testing.TestListener
-import org.gradle.api.tasks.testing.TestResult
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.testing.*
 import java.io.File
+import java.net.URI
 
-open class AggregateTestReport : AbstractTask() {
+open class KotlinTestReport : TestReport() {
     @Internal
     val testTasks = mutableListOf<AbstractTestTask>()
 
-    /**
-     * Returns the set of binary test results to include in the report.
-     */
-    @Suppress("MemberVisibilityCanBePrivate")
-    val testResultDirs: Collection<File>
-        @PathSensitive(PathSensitivity.NONE)
-        @InputFiles
-        @SkipWhenEmpty
-        get() {
-            val dirs = mutableListOf<File>()
-            testTasks.forEach {
-                @Suppress("UnstableApiUsage")
-                dirs.add(it.binResultsDir)
-            }
-            return dirs
-        }
+    @Internal
+    var parent: KotlinTestReport? = null
+
+    @Internal
+    val children = mutableListOf<KotlinTestReport>()
+
+    @Input
+    var checkFailedTests: Boolean = false
 
     @Input
     var ignoreFailures: Boolean = false
@@ -57,22 +48,27 @@ open class AggregateTestReport : AbstractTask() {
         }
     }
 
-    @Input
-    var checkFailedTests: Boolean = false
-
     fun registerTestTask(task: AbstractTestTask) {
         testTasks.add(task)
         task.addTestListener(failedTestsListener)
+
+        @Suppress("UnstableApiUsage")
+        reportOn(task.binResultsDir)
     }
 
-    open fun configureReportsConvention(name: String) {
-
+    fun registerChild(child: KotlinTestReport) {
+        children.add(child)
     }
 
-    @Internal
-    protected open val htmlReportUrl: String? = null
+    open val htmlReportUrl: String?
+        @Internal get() = destinationDir?.let { asClickableFileUrl(it.resolve("index.html")) }
 
-    protected fun checkFailedTests() {
+    private fun asClickableFileUrl(path: File): String {
+        return URI("file", "", path.toURI().path, null, null).toString()
+    }
+
+    @TaskAction
+    fun checkFailedTests() {
         if (checkFailedTests && hasFailedTests) {
             val message = StringBuilder("There were failing tests.")
 
@@ -89,9 +85,24 @@ open class AggregateTestReport : AbstractTask() {
         }
     }
 
-    open fun overrideReporting(task: AbstractTestTask) {
+    fun overrideReporting() {
+        testTasks.forEach {
+            overrideReporting(it)
+        }
+
+        children.forEach {
+            it.overrideReporting()
+        }
+    }
+
+    protected open fun overrideReporting(task: AbstractTestTask) {
         task.ignoreFailures = true
         checkFailedTests = true
         ignoreFailures = false
+
+        @Suppress("UnstableApiUsage")
+        task.reports.html.isEnabled = false
+        @Suppress("UnstableApiUsage")
+        task.reports.junitXml.isEnabled = false
     }
 }

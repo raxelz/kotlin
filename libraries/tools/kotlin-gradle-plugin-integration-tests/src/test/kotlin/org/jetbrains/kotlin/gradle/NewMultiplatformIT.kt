@@ -417,8 +417,6 @@ class NewMultiplatformIT : BaseGradleIT() {
             assertSuccessful()
             assertTasksExecuted(
                 // compilation tasks:
-                ":compileKotlinJs",
-                ":compileTestKotlinJs",
                 ":compileKotlinJvmWithoutJava",
                 ":compileTestKotlinJvmWithoutJava",
                 ":compileKotlinJvmWithJava",
@@ -432,8 +430,6 @@ class NewMultiplatformIT : BaseGradleIT() {
             )
 
             val expectedKotlinOutputFiles = listOf(
-                kotlinClassesDir(sourceSet = "js/main") + "new-mpp-lib-with-tests.js",
-                kotlinClassesDir(sourceSet = "js/test") + "new-mpp-lib-with-tests_test.js",
                 *kotlinClassesDir(sourceSet = "jvmWithJava/main").let {
                     arrayOf(
                         it + "com/example/lib/JavaClassUsageKt.class",
